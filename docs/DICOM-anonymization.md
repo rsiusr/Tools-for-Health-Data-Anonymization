@@ -92,7 +92,9 @@ Parameters in each rule:
 
 > Masked tags follow the [DICOM convention](https://dicom.nema.org/medical/dicom/current/output/chtml/part06/chapter_5.html). `x` in a group or element number, means any value from 0 through F inclusive.
 
-Each DICOM tag can only be anonymized once, if two rules have conflicts on one tag, only the former rule will be applied.
+Exact duplicate selectors are rejected when the engine is constructed. Distinct selectors may overlap, such as a specific tag followed by a broader masked-tag or VR rule; for those overlaps, the first matching rule remains authoritative. Broad `UI` transformations and broad removal of all `SQ` elements are rejected because they can alter invariant UIDs or remove every sequence.
+
+Unknown top-level configuration fields and unknown rule fields are rejected. Duplicate JSON properties, including properties that differ only by letter casing, are also rejected. This is a fail-closed compatibility change: misspelled or ambiguous fields that were previously ignored or overwritten now prevent engine construction. Validation diagnostics identify rule positions, selectors, tags, VRs, and error categories only; they do not include DICOM values, keys, filenames, full rules, settings, or serialized policies.
 
 ### How to set settings
 _defaultSettings_ and _customSettings_ are used to config anonymization method. (Detailed parameters are defined in [Anonymization algorithm](#data-anonymization-algorithms). _defaultSettings_ are used when user does not specify settings in rule. As for _customSettings_, users need to add the setting with unique name. This setting can be used in "rules" by name.
@@ -207,7 +209,9 @@ Here is a sample rule using dateShift method on DICOM tags with VR in DA. The da
 ```
 
 ### CryptoHash
-This function use HMAC-SHA256 algorithm and outputs a Hex encoded representation (for example, a3c024f01cccb3b63457d848b0d2f89c1f744a3d). The length of output string is 64 bytes. You should pay attention to the length limitation of output DICOM file.
+This function uses HMAC and emits a deterministic representation that conforms to the target DICOM VR alphabet and maximum length. `UI` values use the `2.25` UUID-derived decimal form, numeric string VRs use digits, and length-limited text VRs are capped automatically. CryptoHash rules support `AE`, `CS`, `UI`, `DS`, `IS`, `SH`, `PN`, `UC`, `LO`, `UT`, `ST`, `LT`, `UR`, `OB`, and `UN`. Other VRs require a format-aware anonymization method.
+
+Masked selectors, unknown exact tags, and exact tags that may use any unsupported VR are rejected when the engine is constructed, before a dataset is changed. `OW` fragment sequences remain supported when encountered as fragments at runtime, but broad `OW` rules are rejected because a selector cannot prove that every matching item is a fragment sequence.
 In cryptoHash setting, you can set cryptoHash key in setting.
 
 |Parameters|Description|Valid Values|Required|default value|
